@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    #ticker-container {
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+      padding: 10px 0;
+    }
+    #ticker {
+      display: inline-block;
+      animation: scroll 15s linear infinite;
+    }
+    @keyframes scroll {
+      from {
+        transform: translateX(100%);
+      }
+      to {
+        transform: translateX(-100%);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="ticker-container">
+    <div id="ticker">Loading scores...</div>
+  </div>
+
+  <script>
+    async function fetchLiveScores() {
+      const apiKey = "YOUR_API_KEY"; // Replace with your API key
+      const url = "https://livescore6.p.rapidapi.com/matches/v2/list-live?Category=soccer";
+      
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "X-RapidAPI-Host": "livescore6.p.rapidapi.com",
+            "X-RapidAPI-Key": apiKey
+          }
+        });
+        const data = await response.json();
+        
+        // Extract match details
+        const matches = data.Stages.flatMap(stage =>
+          stage.Events.map(event => `${event.T1[0].Nm} ${event.Tr1} - ${event.Tr2} ${event.T2[0].Nm}`)
+        );
+
+        // Update ticker content
+        const ticker = document.getElementById("ticker");
+        ticker.innerHTML = matches.join(" | ");
+      } catch (error) {
+        console.error("Error fetching live scores:", error);
+        document.getElementById("ticker").innerHTML = "Unable to load live scores.";
+      }
+    }
+
+    fetchLiveScores();
+    setInterval(fetchLiveScores, 60000); // Update every 60 seconds
+  </script>
+</body>
+</html>
