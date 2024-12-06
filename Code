@@ -33,9 +33,30 @@
 
   <script>
     async function fetchLiveScores() {
-      const apiKey = "YOUR_API_KEY"; // Replace with your API key
-      const url = "https://livescore6.p.rapidapi.com/matches/v2/list-live?Category=soccer";
-      
+      const apiKey = "8279d174demshd504ca1effd0f46p1178a5jsnb83501a3a0fd";
+      const url = "https://livescore6.p.rapidapi.com/matches/v2/list-live?Category=all";
+
+      // Your favorite teams
+      const favoriteTeams = [
+        "Arsenal", 
+        "Louisville", 
+        "Michigan State", 
+        "Tennessee Titans", 
+        "Nashville Predators", 
+        "Nascar"
+      ];
+
+      // Sports-specific keywords to match team names
+      const sportsMapping = {
+        "NCAA Basketball": ["Louisville", "Michigan State"],
+        "NCAA Womens Basketball": ["Lousville"],
+        "NCAA Football": ["Louisville", "Michigan State"],
+        "EPL": ["Arsenal"],
+        "NFL": ["Tennessee Titans", Chicago Bears],
+        "NHL": ["Nashville Predators"],
+        "NASCAR": ["Nascar"]
+      };
+
       try {
         const response = await fetch(url, {
           method: "GET",
@@ -45,15 +66,23 @@
           }
         });
         const data = await response.json();
-        
-        // Extract match details
-        const matches = data.Stages.flatMap(stage =>
-          stage.Events.map(event => `${event.T1[0].Nm} ${event.Tr1} - ${event.Tr2} ${event.T2[0].Nm}`)
+
+        // Filter matches for favorite teams
+        const filteredMatches = data.Stages.flatMap(stage =>
+          stage.Events.filter(event => {
+            const team1 = event.T1[0].Nm; // Team 1 name
+            const team2 = event.T2[0].Nm; // Team 2 name
+
+            // Check if team matches the favorite teams list
+            return favoriteTeams.includes(team1) || favoriteTeams.includes(team2);
+          }).map(event => `${event.T1[0].Nm} ${event.Tr1} - ${event.Tr2} ${event.T2[0].Nm}`)
         );
 
-        // Update ticker content
+        // Update the ticker content
         const ticker = document.getElementById("ticker");
-        ticker.innerHTML = matches.join(" | ");
+        ticker.innerHTML = filteredMatches.length
+          ? filteredMatches.join(" | ")
+          : "No matches found for your favorite teams.";
       } catch (error) {
         console.error("Error fetching live scores:", error);
         document.getElementById("ticker").innerHTML = "Unable to load live scores.";
