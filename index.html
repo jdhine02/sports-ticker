@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Multi-Sport Ticker</title>
+    <title>Sports Ticker</title>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -95,9 +95,11 @@
     </div>
 
     <script>
-        const API_KEY = 'c1ecaf8db673b709492ce7dd7c4c8120   ';
+        const API_KEY = 'c1ecaf8db673b709492ce7dd7c4c8120';
         const BASE_URL = 'https://api.the-odds-api.com/v4';
-        const CORS_PROXY = 'https://corsproxy.io/?' + encodeURIComponent(BASE_URL);
+        const CORS_PROXY = 'https://corsproxy.io/?';
+        const CACHE_DURATION = 60000; // 1 minutes
+        const REFRESH_INTERVAL = 60000; // 1 minutes
 
         const TRACKED_TEAMS = {
             sports: {
@@ -144,8 +146,8 @@
         };
 
         async function fetchWithProxy(endpoint) {
-            const url = CORS_PROXY + endpoint;
             try {
+                const url = CORS_PROXY + encodeURIComponent(`${BASE_URL}${endpoint}`);
                 const response = await fetch(url, {
                     headers: {
                         'Accept': 'application/json'
@@ -167,33 +169,28 @@
         }
 
         async function getScoresForSport(sportKey) {
-            // First try to get today's games
             const todayGames = await fetchWithProxy(
                 `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=1&dateFormat=iso`
             );
 
-            // Filter for relevant teams
             const relevantTodayGames = todayGames?.filter(game => 
                 TRACKED_TEAMS.sports[sportKey].some(team => 
                     game.home_team.includes(team) || game.away_team.includes(team)
                 )
             ) || [];
 
-            // If no games today for tracked teams, look ahead for next game
             if (relevantTodayGames.length === 0) {
                 const futureGames = await fetchWithProxy(
                     `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=7&dateFormat=iso`
                 );
 
                 if (futureGames) {
-                    // Filter and sort future games to get the next one
                     const relevantFutureGames = futureGames.filter(game => 
                         TRACKED_TEAMS.sports[sportKey].some(team => 
                             game.home_team.includes(team) || game.away_team.includes(team)
                         )
                     ).sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
 
-                    // Return just the next game if found
                     if (relevantFutureGames.length > 0) {
                         return [relevantFutureGames[0]];
                     }
@@ -209,24 +206,19 @@
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
 
-            // If it's today
             if (date.toDateString() === today.toDateString()) {
                 return date.toLocaleString('en-US', {
                     hour: 'numeric',
                     minute: '2-digit',
                     timeZone: 'America/New_York'
                 }) + ' ET Today';
-            }
-            // If it's tomorrow
-            else if (date.toDateString() === tomorrow.toDateString()) {
+            } else if (date.toDateString() === tomorrow.toDateString()) {
                 return date.toLocaleString('en-US', {
                     hour: 'numeric',
                     minute: '2-digit',
                     timeZone: 'America/New_York'
                 }) + ' ET Tomorrow';
-            }
-            // If it's another day
-            else {
+            } else {
                 return date.toLocaleString('en-US', {
                     weekday: 'short',
                     month: 'numeric',
@@ -306,14 +298,13 @@
                     return;
                 }
 
-                // Sort games by date
                 allGames.sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
 
                 let html = '';
                 allGames.forEach(game => {
                     html += createTickerItem(game, game.sportKey, game.sportTitle);
                 });
-                html += html; // Duplicate for continuous scroll
+                html += html;
 
                 ticker.innerHTML = html;
 
@@ -325,8 +316,8 @@
         // Initial update
         updateTicker();
 
-        // Refresh every 60 seconds
-        setInterval(updateTicker, 60000);
+        // Refresh every 1 minutes
+        setInterval(updateTicker, REFRESH_INTERVAL);
     </script>
 </body>
 </html>
