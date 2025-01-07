@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <!-- Previous head content remains the same -->
+    <title>Multi-Sport Ticker</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* Previous styles remain the same */
+        /* Same styles as before */
     </style>
 </head>
 <body>
@@ -12,112 +15,111 @@
             <div class="ticker-item">Loading sports data...</div>
         </div>
     </div>
+    <div id="debug" style="display: none;"></div> <!-- Debug hidden for user -->
 
     <script>
-        // Previous constants remain the same
         const API_KEY = 'c1ecaf8db673b709492ce7dd7c4c8120';
         const BASE_URL = 'https://api.the-odds-api.com/v4';
         const CORS_PROXY = 'https://corsproxy.io/?' + encodeURIComponent(BASE_URL);
-        const REFRESH_INTERVAL = 60000; // 60 seconds
 
-        // Previous TRACKED_TEAMS and SPORT_FORMATS remain the same
+        const TRACKED_TEAMS = {
+            sports: {
+                'icehockey_nhl': ['Nashville Predators'],
+                'americanfootball_nfl': ['Tennessee Titans', 'Chicago Bears'],
+                'soccer_epl': ['Arsenal'],
+                'basketball_ncaab': ['Louisville Cardinals', 'Michigan State Spartans'],
+                'americanfootball_ncaaf': ['Louisville Cardinals', 'Michigan State Spartans'],
+                'basketball_wncaab': ['Louisville Cardinals']
+            },
+        };
 
-        // Cache management
-        function getCacheKey(type) {
-            const today = new Date().toISOString().split('T')[0];
-            return `${type}_${today}`;
-        }
+        const SPORT_FORMATS = {
+            'icehockey_nhl': { cssClass: 'nhl', periodPrefix: 'P' },
+            'americanfootball_nfl': { cssClass: 'nfl', periodPrefix: 'Q' },
+            'soccer_epl': { cssClass: 'epl', periodPrefix: '' },
+            'basketball_ncaab': { cssClass: 'ncaab', periodPrefix: 'H' },
+            'basketball_wncaab': { cssClass: 'wncaab', periodPrefix: 'H' },
+            'americanfootball_ncaaf': { cssClass: 'ncaaf', periodPrefix: 'Q' }
+        };
 
-        function getCache(type) {
-            const key = getCacheKey(type);
-            const cached = localStorage.getItem(key);
-            return cached ? JSON.parse(cached) : null;
-        }
-
-        function setCache(type, data) {
-            const key = getCacheKey(type);
-            localStorage.setItem(key, JSON.stringify({
-                timestamp: Date.now(),
-                data: data
-            }));
-        }
-
-        // Modified fetch functions
-        async function fetchSportsOnce() {
-            const cached = getCache('sports');
-            if (cached) return cached.data;
-
-            const sports = await fetchWithProxy(`/sports?apiKey=${API_KEY}&all=true`);
-            if (sports) setCache('sports', sports);
-            return sports;
-        }
-
-        async function getActiveGames(sportKey) {
-            const cacheKey = `games_${sportKey}`;
-            const cached = getCache(cacheKey);
-            const now = new Date();
-            
-            // If we have cached data less than 5 minutes old, use it
-            if (cached && (now - new Date(cached.timestamp)) < 300000) {
-                return cached.data;
-            }
-
-            const games = await fetchWithProxy(
-                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=1&dateFormat=iso`
-            );
-
-            if (games) {
-                // Filter for relevant teams and active/upcoming games
-                const relevantGames = games.filter(game => 
-                    TRACKED_TEAMS.sports[sportKey].some(team => 
-                        game.home_team.includes(team) || game.away_team.includes(team)
-                    ) && (
-                        // Game is today
-                        new Date(game.commence_time).toDateString() === now.toDateString() ||
-                        // Or game is live
-                        (game.completed === false && new Date(game.commence_time) <= now)
-                    )
-                );
-
-                if (relevantGames.length > 0) {
-                    setCache(cacheKey, relevantGames);
+        async function fetchWithProxy(endpoint, retries = 3) {
+            const url = CORS_PROXY + endpoint;
+            try {
+                const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                return relevantGames;
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}: ${error.message}`);
+                if (retries > 0) {
+                    console.log(`Retrying ${endpoint}...`);
+                    await new Promise(resolve => setTimeout(resolve, 3000)); // Retry after 3 seconds
+                    return fetchWithProxy(endpoint, retries - 1);
+                }
+                return null; // Return null after exhausting retries
             }
-            return [];
         }
 
-        // Modified update function
+        async function getSportsData() {
+            const sportsData = await fetchWithProxy(`/sports?apiKey=${API_KEY}&all=true`);
+            if (sportsData) console.log("Sports data fetched successfully.");
+            return sportsData;
+        }
+
+        async function getScoresForSport(sportKey) {
+            return await fetchWithProxy(`/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=0&dateFormat=iso`);
+        }
+
+        function calculateTimeUntilNextRun(hour, minute) {
+            const now = new Date();
+            const nextRun = new Date();
+            nextRun.setHours(hour, minute, 0, 0);
+            if (now >= nextRun) {
+                nextRun.setDate(nextRun.getDate() + 1);
+            }
+            return nextRun - now; // Time difference in milliseconds
+        }
+
+        function scheduleDailySportsDataUpdate() {
+            const timeUntilNextRun = calculateTimeUntilNextRun(1, 0); // 1:00 AM
+            console.log(`Next sports data update scheduled in ${timeUntilNextRun / 1000 / 60} minutes.`);
+            setTimeout(() => {
+                getSportsData();
+                setInterval(getSportsData, 24 * 60 * 60 * 1000); // Run every 24 hours
+            }, timeUntilNextRun);
+        }
+
         async function updateTicker() {
             try {
-                const sports = await fetchSportsOnce();
-                if (!sports) return;
+                const sports = await getSportsData();
+                if (!sports) {
+                    console.error("Failed to fetch sports data for ticker update.");
+                    return;
+                }
 
                 let allGames = [];
                 const sportTitles = {};
-                const now = new Date();
-
                 sports.forEach(sport => {
                     sportTitles[sport.key] = sport.title;
                 });
 
-                // Only fetch for sports that have tracked teams
                 for (const sportKey of Object.keys(TRACKED_TEAMS.sports)) {
-                    const games = await getActiveGames(sportKey);
-                    if (games && games.length > 0) {
-                        games.forEach(game => {
-                            allGames.push({
-                                ...game,
-                                sportKey,
-                                sportTitle: sportTitles[sportKey] || sportKey
-                            });
+                    const games = await getScoresForSport(sportKey);
+                    if (games) {
+                        const relevantGames = games.filter(game =>
+                            TRACKED_TEAMS.sports[sportKey].some(team =>
+                                game.home_team.includes(team) || game.away_team.includes(team)
+                            )
+                        );
+
+                        relevantGames.forEach(game => {
+                            allGames.push({ ...game, sportKey, sportTitle: sportTitles[sportKey] || sportKey });
                         });
                     }
                 }
 
-                // Rest of the display logic remains the same
                 const ticker = document.getElementById('ticker');
-                
                 if (allGames.length === 0) {
                     ticker.innerHTML = '<div class="ticker-item">No live or upcoming games found</div>';
                     return;
@@ -130,17 +132,47 @@
                 html += html; // Duplicate for continuous scroll
 
                 ticker.innerHTML = html;
-
+                console.log(`Updated ticker with ${allGames.length} games.`);
             } catch (error) {
-                // Silent error handling
+                console.error("Error updating ticker:", error.message);
             }
         }
 
-        // Initial update
-        updateTicker();
+        function createTickerItem(game, sportKey, sportTitle) {
+            const isLive = game.completed === false && new Date(game.commence_time) <= new Date();
+            const status = game.completed ? 'FINAL' : isLive ? 'LIVE' : 'NEXT';
+            const statusClass = isLive ? 'live' : (game.completed ? 'final' : 'upcoming');
+            const format = SPORT_FORMATS[sportKey];
 
-        // Refresh every minute
-        setInterval(updateTicker, REFRESH_INTERVAL);
+            return `
+                <div class="ticker-item">
+                    <span class="league-badge ${format?.cssClass || ''}">${sportTitle}</span>
+                    <span class="${statusClass}">${status}</span>
+                    ${game.home_team}
+                    ${game.scores ?
+                        `<span class="score">${game.scores.home || '0'}</span> -
+                         <span class="score">${game.scores.away || '0'}</span>` :
+                        'vs'
+                    }
+                    ${game.away_team}
+                    ${isLive ?
+                        `<span class="period">${formatPeriod(game, sportKey)}</span>` :
+                        (!game.completed ?
+                            `<span class="period">${formatGameTime(game.commence_time)}</span>` :
+                            ''
+                        )
+                    }
+                </div>
+            `;
+        }
+
+        // Initial setup
+        (async () => {
+            await getSportsData(); // Fetch sports data immediately on load
+            scheduleDailySportsDataUpdate(); // Schedule daily updates
+            updateTicker(); // Initial ticker update
+            setInterval(updateTicker, 300000); // Refresh ticker every 5 minutes
+        })();
     </script>
 </body>
 </html>
