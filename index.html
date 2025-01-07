@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sports Ticker</title>
+    <title>Multi-Sport Ticker</title>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -37,6 +37,21 @@
             border-right: 1px solid #333;
         }
 
+        .league-badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-right: 8px;
+            font-size: 0.8em;
+        }
+
+        /* Sport-specific colors */
+        .nhl { background: #041E42; }
+        .nfl { background: #013369; }
+        .epl { background: #3D195B; }
+        .ncaab { background: #FF4716; }
+        .ncaaf { background: #7B0000; }
+        .wncaab { background: #FF69B4; }
+
         .score {
             color: #ffd700;
             margin: 0 10px;
@@ -45,18 +60,24 @@
 
         .live {
             color: #ff4444;
-            margin-right: 10px;
+            margin: 0 10px;
             font-weight: bold;
         }
 
         .upcoming {
             color: #44aaff;
-            margin-right: 10px;
+            margin: 0 10px;
+        }
+
+        .final {
+            color: #44ff44;
+            margin: 0 10px;
         }
 
         .period {
             color: #888;
             margin-left: 10px;
+            font-size: 0.9em;
         }
 
         @keyframes ticker {
@@ -64,72 +85,233 @@
             100% { transform: translateX(-100%); }
         }
 
-        .ticker:hover {
-            animation-play-state: paused;
+        #debug {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            width: 100%;
+            z-index: 1000;
         }
     </style>
 </head>
 <body>
     <div class="ticker-container">
-        <div class="ticker" id="ticker"></div>
+        <div class="ticker" id="ticker">
+            <div class="ticker-item">Loading sports data...</div>
+        </div>
     </div>
+    <div id="debug"></div>
 
     <script>
-        // Sample data structure (we'll replace this with API data)
-        const sampleGames = [
-            {
-                sport: "NHL",
-                homeTeam: "Nashville Predators",
-                awayTeam: "Chicago Blackhawks",
-                status: "LIVE",
-                homeScore: 3,
-                awayScore: 2,
-                period: "P2 10:24"
-            },
-            {
-                sport: "NFL",
-                homeTeam: "Tennessee Titans",
-                awayTeam: "Chicago Bears",
-                status: "UPCOMING",
-                time: "Sun 1/8 1:00 PM ET"
-            }
-        ];
+        const API_KEY = '655edb945e2dca9ca2902bc144a641bb';
+        const BASE_URL = 'https://api.the-odds-api.com/v4';
+        const CORS_PROXY = 'https://corsproxy.io/?' + encodeURIComponent(BASE_URL);
 
-        function createTickerItem(game) {
-            const isLive = game.status === "LIVE";
+        const TRACKED_TEAMS = {
+            sports: {
+                'icehockey_nhl': ['Nashville Predators'],
+                'americanfootball_nfl': ['Tennessee Titans', 'Chicago Bears'],
+                'soccer_epl': ['Arsenal'],
+                'basketball_ncaab': ['Louisville Cardinals', 'Michigan State Spartans'],
+                'americanfootball_ncaaf': ['Louisville Cardinals', 'Michigan State Spartans'],
+                'basketball_wncaab': ['Louisville Cardinals']
+            },
+            allTeams: [
+                'Nashville Predators',
+                'Tennessee Titans', 
+                'Chicago Bears',
+                'Arsenal',
+                'Louisville Cardinals',
+                'Michigan State Spartans'
+            ]
+        };
+
+        // Sport-specific formatting
+        const SPORT_FORMATS = {
+            'icehockey_nhl': {
+                cssClass: 'nhl',
+                periodPrefix: 'P',
+                scoreFormat: 'standard'
+            },
+            'americanfootball_nfl': {
+                cssClass: 'nfl',
+                periodPrefix: 'Q',
+                scoreFormat: 'standard'
+            },
+            'soccer_epl': {
+                cssClass: 'epl',
+                periodPrefix: '',
+                scoreFormat: 'soccer'
+            },
+            'basketball_ncaab': {
+                cssClass: 'ncaab',
+                periodPrefix: 'H',
+                scoreFormat: 'standard'
+            },
+            'basketball_wncaab': {
+                cssClass: 'wncaab',
+                periodPrefix: 'H',
+                scoreFormat: 'standard'
+            },
+            'americanfootball_ncaaf': {
+                cssClass: 'ncaaf',
+                periodPrefix: 'Q',
+                scoreFormat: 'standard'
+            }
+        };
+
+        function log(message) {
+            const debug = document.getElementById('debug');
+            const timestamp = new Date().toLocaleTimeString();
+            debug.innerHTML += `[${timestamp}] ${message}<br>`;
+            debug.scrollTop = debug.scrollHeight;
+        }
+
+        async function fetchWithProxy(endpoint) {
+            const url = CORS_PROXY + endpoint;
+            log(`Fetching: ${endpoint}`);
+            
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                log(`Error fetching ${endpoint}: ${error.message}`);
+                return null;
+            }
+        }
+
+        async function getSportsData() {
+            return await fetchWithProxy(`/sports?apiKey=${API_KEY}&all=true`);
+        }
+
+        async function getScoresForSport(sportKey) {
+            return await fetchWithProxy(
+                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=1&dateFormat=iso`
+            );
+        }
+
+        function formatGameTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString('en-US', {
+                weekday: 'short',
+                month: 'numeric',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                timeZone: 'America/New_York'
+            }) + ' ET';
+        }
+
+        function formatPeriod(game, sportKey) {
+            if (!game.period) return '';
+            const format = SPORT_FORMATS[sportKey];
+            if (!format) return `P${game.period}`;
+
+            return `${format.periodPrefix}${game.period} ${game.clock || ''}`;
+        }
+
+        function createTickerItem(game, sportKey, sportTitle) {
+            const isLive = game.completed === false && new Date(game.commence_time) <= new Date();
+            const status = game.completed ? 'FINAL' : isLive ? 'LIVE' : 'NEXT';
+            const statusClass = isLive ? 'live' : (game.completed ? 'final' : 'upcoming');
+            const format = SPORT_FORMATS[sportKey];
+
             return `
                 <div class="ticker-item">
-                    <span class="${isLive ? 'live' : 'upcoming'}">${game.status}</span>
-                    ${game.homeTeam} 
-                    ${isLive ? `<span class="score">${game.homeScore}</span> - 
-                    <span class="score">${game.awayScore}</span>` : 'vs'} 
-                    ${game.awayTeam}
-                    <span class="period">${isLive ? game.period : game.time}</span>
+                    <span class="league-badge ${format?.cssClass || ''}">${sportTitle}</span>
+                    <span class="${statusClass}">${status}</span>
+                    ${game.home_team} 
+                    ${game.scores ? 
+                        `<span class="score">${game.scores.home || '0'}</span> - 
+                         <span class="score">${game.scores.away || '0'}</span>` 
+                        : 'vs'
+                    } 
+                    ${game.away_team}
+                    ${isLive ? 
+                        `<span class="period">${formatPeriod(game, sportKey)}</span>` :
+                        (!game.completed ? 
+                            `<span class="period">${formatGameTime(game.commence_time)}</span>` :
+                            ''
+                        )
+                    }
                 </div>
             `;
         }
 
-        function updateTicker() {
-            const ticker = document.getElementById('ticker');
-            let html = '';
-            
-            // Add original items
-            sampleGames.forEach(game => {
-                html += createTickerItem(game);
-            });
-            
-            // Duplicate items for continuous scroll
-            sampleGames.forEach(game => {
-                html += createTickerItem(game);
-            });
-            
-            ticker.innerHTML = html;
+        async function updateTicker() {
+            try {
+                const sports = await getSportsData();
+                if (!sports) return;
+
+                let allGames = [];
+                const sportTitles = {};
+
+                sports.forEach(sport => {
+                    sportTitles[sport.key] = sport.title;
+                });
+
+                for (const sportKey of Object.keys(TRACKED_TEAMS.sports)) {
+                    const games = await getScoresForSport(sportKey);
+                    if (games) {
+                        const relevantGames = games.filter(game => 
+                            TRACKED_TEAMS.sports[sportKey].some(team => 
+                                game.home_team.includes(team) || 
+                                game.away_team.includes(team)
+                            )
+                        );
+
+                        relevantGames.forEach(game => {
+                            allGames.push({
+                                ...game,
+                                sportKey,
+                                sportTitle: sportTitles[sportKey] || sportKey
+                            });
+                        });
+                    }
+                }
+
+                const ticker = document.getElementById('ticker');
+                
+                if (allGames.length === 0) {
+                    ticker.innerHTML = '<div class="ticker-item">No live or upcoming games found</div>';
+                    return;
+                }
+
+                let html = '';
+                allGames.forEach(game => {
+                    html += createTickerItem(game, game.sportKey, game.sportTitle);
+                });
+                html += html; // Duplicate for continuous scroll
+
+                ticker.innerHTML = html;
+                log(`Updated ticker with ${allGames.length} games`);
+
+            } catch (error) {
+                log(`Error updating ticker: ${error.message}`);
+            }
         }
 
         // Initial update
         updateTicker();
 
-        // TODO: Replace with actual API integration
+        // Refresh every 30 seconds
         setInterval(updateTicker, 30000);
     </script>
 </body>
