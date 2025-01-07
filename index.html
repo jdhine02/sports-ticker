@@ -84,21 +84,6 @@
             0% { transform: translateX(0); }
             100% { transform: translateX(-100%); }
         }
-
-        #debug {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 10px;
-            font-family: monospace;
-            font-size: 12px;
-            max-height: 200px;
-            overflow-y: auto;
-            width: 100%;
-            z-index: 1000;
-        }
     </style>
 </head>
 <body>
@@ -107,7 +92,6 @@
             <div class="ticker-item">Loading sports data...</div>
         </div>
     </div>
-    <div id="debug"></div>
 
     <script>
         const API_KEY = '655edb945e2dca9ca2902bc144a641bb';
@@ -133,7 +117,6 @@
             ]
         };
 
-        // Sport-specific formatting
         const SPORT_FORMATS = {
             'icehockey_nhl': {
                 cssClass: 'nhl',
@@ -167,16 +150,8 @@
             }
         };
 
-        function log(message) {
-            const debug = document.getElementById('debug');
-            const timestamp = new Date().toLocaleTimeString();
-            debug.innerHTML += `[${timestamp}] ${message}<br>`;
-            debug.scrollTop = debug.scrollHeight;
-        }
-
         async function fetchWithProxy(endpoint) {
             const url = CORS_PROXY + endpoint;
-            log(`Fetching: ${endpoint}`);
             
             try {
                 const response = await fetch(url, {
@@ -189,10 +164,9 @@
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
-                const data = await response.json();
-                return data;
+                return await response.json();
             } catch (error) {
-                log(`Error fetching ${endpoint}: ${error.message}`);
+                console.error(`Error fetching ${endpoint}: ${error.message}`);
                 return null;
             }
         }
@@ -203,20 +177,43 @@
 
         async function getScoresForSport(sportKey) {
             return await fetchWithProxy(
-                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=1&dateFormat=iso`
+                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=3&dateFormat=iso`
             );
         }
 
         function formatGameTime(isoString) {
             const date = new Date(isoString);
-            return date.toLocaleString('en-US', {
-                weekday: 'short',
-                month: 'numeric',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                timeZone: 'America/New_York'
-            }) + ' ET';
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+
+            // If it's today
+            if (date.toDateString() === today.toDateString()) {
+                return date.toLocaleString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    timeZone: 'America/New_York'
+                }) + ' ET Today';
+            }
+            // If it's tomorrow
+            else if (date.toDateString() === tomorrow.toDateString()) {
+                return date.toLocaleString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    timeZone: 'America/New_York'
+                }) + ' ET Tomorrow';
+            }
+            // If it's another day
+            else {
+                return date.toLocaleString('en-US', {
+                    weekday: 'short',
+                    month: 'numeric',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    timeZone: 'America/New_York'
+                }) + ' ET';
+            }
         }
 
         function formatPeriod(game, sportKey) {
@@ -294,6 +291,9 @@
                     return;
                 }
 
+                // Sort games by date
+                allGames.sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time));
+
                 let html = '';
                 allGames.forEach(game => {
                     html += createTickerItem(game, game.sportKey, game.sportTitle);
@@ -301,10 +301,9 @@
                 html += html; // Duplicate for continuous scroll
 
                 ticker.innerHTML = html;
-                log(`Updated ticker with ${allGames.length} games`);
 
             } catch (error) {
-                log(`Error updating ticker: ${error.message}`);
+                console.error(`Error updating ticker: ${error.message}`);
             }
         }
 
