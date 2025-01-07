@@ -12,6 +12,7 @@
             background: #1a1a1a;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
+            height: 60px; /* Set fixed height to prevent scrolling */
         }
 
         .ticker-container {
@@ -106,15 +107,7 @@
                 'basketball_ncaab': ['Louisville Cardinals', 'Michigan State Spartans'],
                 'americanfootball_ncaaf': ['Louisville Cardinals', 'Michigan State Spartans'],
                 'basketball_wncaab': ['Louisville Cardinals']
-            },
-            allTeams: [
-                'Nashville Predators',
-                'Tennessee Titans', 
-                'Chicago Bears',
-                'Arsenal',
-                'Louisville Cardinals',
-                'Michigan State Spartans'
-            ]
+            }
         };
 
         const SPORT_FORMATS = {
@@ -152,7 +145,6 @@
 
         async function fetchWithProxy(endpoint) {
             const url = CORS_PROXY + endpoint;
-            
             try {
                 const response = await fetch(url, {
                     headers: {
@@ -166,7 +158,6 @@
                 
                 return await response.json();
             } catch (error) {
-                console.error(`Error fetching ${endpoint}: ${error.message}`);
                 return null;
             }
         }
@@ -183,37 +174,14 @@
 
         function formatGameTime(isoString) {
             const date = new Date(isoString);
-            const today = new Date();
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-
-            // If it's today
-            if (date.toDateString() === today.toDateString()) {
-                return date.toLocaleString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    timeZone: 'America/New_York'
-                }) + ' ET Today';
-            }
-            // If it's tomorrow
-            else if (date.toDateString() === tomorrow.toDateString()) {
-                return date.toLocaleString('en-US', {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    timeZone: 'America/New_York'
-                }) + ' ET Tomorrow';
-            }
-            // If it's another day
-            else {
-                return date.toLocaleString('en-US', {
-                    weekday: 'short',
-                    month: 'numeric',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    timeZone: 'America/New_York'
-                }) + ' ET';
-            }
+            return date.toLocaleString('en-US', {
+                weekday: 'short',
+                month: 'numeric',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                timeZone: 'America/New_York'
+            }) + ' ET';
         }
 
         function formatPeriod(game, sportKey) {
@@ -303,7 +271,7 @@
                 ticker.innerHTML = html;
 
             } catch (error) {
-                console.error(`Error updating ticker: ${error.message}`);
+                // Silent error handling - no visible output
             }
         }
 
