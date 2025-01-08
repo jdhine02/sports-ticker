@@ -213,7 +213,7 @@
 
         async function getScoresForSport(sportKey) {
             return await fetchWithProxy(
-                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=1&dateFormat=iso`
+                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=3&dateFormat=iso`
             );
         }
 
