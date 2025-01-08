@@ -114,6 +114,16 @@
         const BASE_URL = 'https://api.the-odds-api.com/v4';
         const CORS_PROXY = 'https://corsproxy.io/?' + encodeURIComponent(BASE_URL);
 
+        // Valid sports and their keys - New 1/8
+        const VALID_SPORTS = {
+            'americanfootball_ncaaf': 'NCAAF',
+            'americanfootball_nfl': 'NFL',
+            'basketball_ncaab': 'NCAAB',
+            'basketball_wncaab': 'WNCAAB',
+            'soccer_epl': 'EPL',
+            'icehockey_nhl': 'NHL'
+        };
+        
         const TRACKED_TEAMS = {
             sports: {
                 'icehockey_nhl': ['Nashville Predators'],
@@ -121,7 +131,7 @@
                 'soccer_epl': ['Arsenal'],
                 'basketball_ncaab': ['Louisville Cardinals', 'Michigan St Spartans'],
                 'americanfootball_ncaaf': ['Louisville Cardinals', 'Michigan St Spartans'],
-                'basketball_wncaab': ['Louisville Cardinals']
+                'basketball_wncaab': ['Louisville Cardinals' 'Michigan St Spartans']
             },
             allTeams: [
                 'Nashville Predators',
@@ -203,7 +213,7 @@
 
         async function getScoresForSport(sportKey) {
             return await fetchWithProxy(
-                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=3&dateFormat=iso`
+                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=1&dateFormat=iso`
             );
         }
 
@@ -232,15 +242,15 @@
             const status = game.completed ? 'FINAL' : isLive ? 'LIVE' : 'NEXT';
             const statusClass = isLive ? 'live' : (game.completed ? 'final' : 'upcoming');
             const format = SPORT_FORMATS[sportKey];
-        
+
             return `
                 <div class="ticker-item">
                     <span class="league-badge ${format?.cssClass || ''}">${sportTitle}</span>
                     <span class="${statusClass}">${status}</span>
                     ${game.home_team}
-                    ${(game.scores || game.completed) ?  // Changed this line to check for completed games
-                        `<span class="score">${game.scores?.home || '0'}</span> -
-                         <span class="score">${game.scores?.away || '0'}</span>`
+                    ${game.scores ?
+                        `<span class="score">${game.scores.home || '0'}</span> -
+                         <span class="score">${game.scores.away || '0'}</span>`
                         : 'vs'
                     }
                     ${game.away_team}
@@ -252,6 +262,8 @@
                         )
                     }
                 </div>
+            `;
+        }
 
         async function updateTicker() {
             try {
