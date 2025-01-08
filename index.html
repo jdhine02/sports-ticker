@@ -85,6 +85,21 @@
             0% { transform: translateX(0); }
             100% { transform: translateX(-100%); }
         }
+//delete later
+        #debug {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            width: 100%;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -93,7 +108,9 @@
             <div class="ticker-item">Loading sports data...</div>
         </div>
     </div>
-
+//delete later    
+<div id="debug"></div>
+    
     <script>
         const API_KEY = '655edb945e2dca9ca2902bc144a641bb';
         const BASE_URL = 'https://api.the-odds-api.com/v4';
@@ -109,20 +126,40 @@
             'basketball_nba': { title: 'NBA', cssClass: 'nba' },
             'soccer_epl': { title: 'EPL', cssClass: 'epl' },
             'icehockey_nhl': { title: 'NHL', cssClass: 'nhl' }
+//Delete later
+    function log(message) {
+    const debug = document.getElementById('debug');
+    const timestamp = new Date().toLocaleTimeString();
+    debug.innerHTML += `[${timestamp}] ${message}<br>`;
+    debug.scrollTop = debug.scrollHeight;
+            }
         };
 
         // Store final scores until midnight
         let finalScores = new Map();
 
+        //will need to edit back later
         async function fetchWithProxy(endpoint) {
+            const url = CORS_PROXY + endpoint;
+            log(`Fetching: ${endpoint}`); // Debug line
+            
             try {
-                const response = await fetch(CORS_PROXY + endpoint, {
-                    headers: { 'Accept': 'application/json' }
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
                 });
                 
-                if (!response.ok) return null;
-                return await response.json();
+                if (!response.ok) {
+                    log(`Error: ${response.status}`); // Debug line
+                    return null;
+                }
+                
+                const data = await response.json();
+                log(`Success: Got data for ${endpoint}`); // Debug line
+                return data;
             } catch (error) {
+                log(`Error: ${error.message}`); // Debug line
                 return null;
             }
         }
