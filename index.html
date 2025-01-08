@@ -232,15 +232,15 @@
             const status = game.completed ? 'FINAL' : isLive ? 'LIVE' : 'NEXT';
             const statusClass = isLive ? 'live' : (game.completed ? 'final' : 'upcoming');
             const format = SPORT_FORMATS[sportKey];
-
+        
             return `
                 <div class="ticker-item">
                     <span class="league-badge ${format?.cssClass || ''}">${sportTitle}</span>
                     <span class="${statusClass}">${status}</span>
                     ${game.home_team}
-                    ${game.scores ?
-                        `<span class="score">${game.scores.home || '0'}</span> -
-                         <span class="score">${game.scores.away || '0'}</span>`
+                    ${(game.scores || game.completed) ?  // Changed this line to check for completed games
+                        `<span class="score">${game.scores?.home || '0'}</span> -
+                         <span class="score">${game.scores?.away || '0'}</span>`
                         : 'vs'
                     }
                     ${game.away_team}
@@ -252,8 +252,6 @@
                         )
                     }
                 </div>
-            `;
-        }
 
         async function updateTicker() {
             try {
