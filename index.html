@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Sports Ticker</title>
+    <title>Multi-Sport Ticker</title>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +12,6 @@
             background: #1a1a1a;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             overflow: hidden;
-            height: 60px;
         }
 
         .ticker-container {
@@ -51,7 +50,7 @@
         .epl { background: #3D195B; }
         .ncaab { background: #FF4716; }
         .ncaaf { background: #7B0000; }
-        .nba { background: #1D428A; }
+        .wncaab { background: #FF69B4; }
 
         .score {
             color: #ffd700;
@@ -75,7 +74,7 @@
             margin: 0 10px;
         }
 
-        .time {
+        .period {
             color: #888;
             margin-left: 10px;
             font-size: 0.9em;
@@ -85,9 +84,7 @@
             0% { transform: translateX(0); }
             100% { transform: translateX(-100%); }
         }
-        
-    //delete later
-        
+
         #debug {
             position: fixed;
             bottom: 0;
@@ -110,80 +107,104 @@
             <div class="ticker-item">Loading sports data...</div>
         </div>
     </div>
-      
-<div id="debug"></div>
-    
+    <div id="debug"></div>
+
     <script>
         const API_KEY = '655edb945e2dca9ca2902bc144a641bb';
         const BASE_URL = 'https://api.the-odds-api.com/v4';
         const CORS_PROXY = 'https://corsproxy.io/?' + encodeURIComponent(BASE_URL);
-        const UPDATE_INTERVAL = 1800000; // 30 minutes
-        const LIVE_UPDATE_INTERVAL = 60000; // 1 minute for live games
 
-        // Sport keys and tracked teams
-        const SPORT_KEYS = {
-            'americanfootball_ncaaf': { title: 'NCAAF', cssClass: 'ncaaf' },
-            'americanfootball_nfl': { title: 'NFL', cssClass: 'nfl' },
-            'basketball_ncaab': { title: 'NCAAB', cssClass: 'ncaab' },
-            'basketball_nba': { title: 'NBA', cssClass: 'nba' },
-            'soccer_epl': { title: 'EPL', cssClass: 'epl' },
-            'icehockey_nhl': { title: 'NHL', cssClass: 'nhl' }
-//Delete later
-    function log(message) {
-    const debug = document.getElementById('debug');
-    const timestamp = new Date().toLocaleTimeString();
-    debug.innerHTML += `[${timestamp}] ${message}<br>`;
-    debug.scrollTop = debug.scrollHeight;
+        const TRACKED_TEAMS = {
+            sports: {
+                'icehockey_nhl': ['Nashville Predators'],
+                'americanfootball_nfl': ['Tennessee Titans', 'Chicago Bears'],
+                'soccer_epl': ['Arsenal'],
+                'basketball_ncaab': ['Louisville Cardinals', 'Michigan State Spartans'],
+                'americanfootball_ncaaf': ['Louisville Cardinals', 'Michigan St Spartans'],
+                'basketball_wncaab': ['Louisville Cardinals', 'Michigan St Spartans']
+            },
+            allTeams: [
+                'Nashville Predators',
+                'Tennessee Titans',
+                'Chicago Bears',
+                'Arsenal',
+                'Louisville Cardinals',
+                'Michigan St Spartans'
+            ]
+        };
+
+        // Sport-specific formatting
+        const SPORT_FORMATS = {
+            'icehockey_nhl': {
+                cssClass: 'nhl',
+                periodPrefix: 'P',
+                scoreFormat: 'standard'
+            },
+            'americanfootball_nfl': {
+                cssClass: 'nfl',
+                periodPrefix: 'Q',
+                scoreFormat: 'standard'
+            },
+            'soccer_epl': {
+                cssClass: 'epl',
+                periodPrefix: '',
+                scoreFormat: 'soccer'
+            },
+            'basketball_ncaab': {
+                cssClass: 'ncaab',
+                periodPrefix: 'H',
+                scoreFormat: 'standard'
+            },
+            'basketball_wncaab': {
+                cssClass: 'wncaab',
+                periodPrefix: 'H',
+                scoreFormat: 'standard'
+            },
+            'americanfootball_ncaaf': {
+                cssClass: 'ncaaf',
+                periodPrefix: 'Q',
+                scoreFormat: 'standard'
             }
         };
 
-        // Store final scores until midnight
-        let finalScores = new Map();
+        function log(message) {
+            const debug = document.getElementById('debug');
+            const timestamp = new Date().toLocaleTimeString();
+            debug.innerHTML += `[${timestamp}] ${message}<br>`;
+            debug.scrollTop = debug.scrollHeight;
+        }
 
-        //will need to edit back later
         async function fetchWithProxy(endpoint) {
             const url = CORS_PROXY + endpoint;
-            log(`Fetching: ${endpoint}`); // Debug line
-            
+            log(`Fetching: ${endpoint}`);
+           
             try {
                 const response = await fetch(url, {
                     headers: {
                         'Accept': 'application/json'
                     }
                 });
-                
+               
                 if (!response.ok) {
-                    log(`Error: ${response.status}`); // Debug line
-                    return null;
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
+               
                 const data = await response.json();
-                log(`Success: Got data for ${endpoint}`); // Debug line
                 return data;
             } catch (error) {
-                log(`Error: ${error.message}`); // Debug line
+                log(`Error fetching ${endpoint}: ${error.message}`);
                 return null;
             }
         }
 
-        async function getGames(sportKey, daysFrom = 1) {
-            const scores = await fetchWithProxy(
-                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=${daysFrom}&dateFormat=iso`
+        async function getSportsData() {
+            return await fetchWithProxy(`/sports?apiKey=${API_KEY}&all=true`);
+        }
+
+        async function getScoresForSport(sportKey) {
+            return await fetchWithProxy(
+                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=1&dateFormat=iso`
             );
-            return scores || [];
-        }
-
-        function isGameToday(game) {
-            const gameDate = new Date(game.commence_time);
-            const today = new Date();
-            return gameDate.toDateString() === today.toDateString();
-        }
-
-        function shouldKeepFinalScore(game) {
-            const now = new Date();
-            const midnight = new Date(now);
-            midnight.setHours(23, 59, 59, 999);
-            return new Date(game.commence_time) <= midnight;
         }
 
         function formatGameTime(isoString) {
@@ -198,27 +219,37 @@
             }) + ' ET';
         }
 
-        function createTickerItem(game, sportInfo) {
-            const now = new Date();
-            const gameTime = new Date(game.commence_time);
-            const isLive = !game.completed && gameTime <= now;
+        function formatPeriod(game, sportKey) {
+            if (!game.period) return '';
+            const format = SPORT_FORMATS[sportKey];
+            if (!format) return `P${game.period}`;
+
+            return `${format.periodPrefix}${game.period} ${game.clock || ''}`;
+        }
+
+        function createTickerItem(game, sportKey, sportTitle) {
+            const isLive = game.completed === false && new Date(game.commence_time) <= new Date();
             const status = game.completed ? 'FINAL' : isLive ? 'LIVE' : 'NEXT';
             const statusClass = isLive ? 'live' : (game.completed ? 'final' : 'upcoming');
+            const format = SPORT_FORMATS[sportKey];
 
             return `
                 <div class="ticker-item">
-                    <span class="league-badge ${sportInfo.cssClass}">${sportInfo.title}</span>
+                    <span class="league-badge ${format?.cssClass || ''}">${sportTitle}</span>
                     <span class="${statusClass}">${status}</span>
                     ${game.home_team}
-                    ${game.scores || game.completed ?
-                        `<span class="score">${game.scores?.home || '0'}</span> -
-                         <span class="score">${game.scores?.away || '0'}</span>`
+                    ${game.scores ?
+                        `<span class="score">${game.scores.home || '0'}</span> -
+                         <span class="score">${game.scores.away || '0'}</span>`
                         : 'vs'
                     }
                     ${game.away_team}
-                    ${!isLive && !game.completed ?
-                        `<span class="time">${formatGameTime(game.commence_time)}</span>`
-                        : ''
+                    ${isLive ?
+                        `<span class="period">${formatPeriod(game, sportKey)}</span>` :
+                        (!game.completed ?
+                            `<span class="period">${formatGameTime(game.commence_time)}</span>` :
+                            ''
+                        )
                     }
                 </div>
             `;
@@ -226,77 +257,62 @@
 
         async function updateTicker() {
             try {
+                const sports = await getSportsData();
+                if (!sports) return;
+
                 let allGames = [];
-                const now = new Date();
-                
-                // Clear old final scores at midnight
-                if (now.getHours() === 0 && now.getMinutes() === 0) {
-                    finalScores.clear();
-                }
+                const sportTitles = {};
 
-                // Get games for each sport
-                for (const [sportKey, sportInfo] of Object.entries(SPORT_KEYS)) {
-                    // First check today's games
-                    let games = await getGames(sportKey, 1);
-                    let hasGamesToday = games.some(game => isGameToday(game));
-
-                    // If no games today, look ahead 3 days
-                    if (!hasGamesToday) {
-                        games = await getGames(sportKey, 3);
-                    }
-
-                    // Add to display list
-                    games.forEach(game => {
-                        if (game.completed && shouldKeepFinalScore(game)) {
-                            finalScores.set(game.id, game);
-                        }
-                        allGames.push({...game, sportInfo});
-                    });
-                }
-
-                // Add stored final scores
-                finalScores.forEach(game => {
-                    if (!allGames.some(g => g.id === game.id)) {
-                        allGames.push(game);
-                    }
+                sports.forEach(sport => {
+                    sportTitles[sport.key] = sport.title;
                 });
 
-                // Sort games: live first, then upcoming, then completed
-                allGames.sort((a, b) => {
-                    const aIsLive = !a.completed && new Date(a.commence_time) <= now;
-                    const bIsLive = !b.completed && new Date(b.commence_time) <= now;
-                    if (aIsLive !== bIsLive) return bIsLive ? 1 : -1;
-                    if (a.completed !== b.completed) return a.completed ? 1 : -1;
-                    return new Date(a.commence_time) - new Date(b.commence_time);
-                });
+                for (const sportKey of Object.keys(TRACKED_TEAMS.sports)) {
+                    const games = await getScoresForSport(sportKey);
+                    if (games) {
+                        const relevantGames = games.filter(game =>
+                            TRACKED_TEAMS.sports[sportKey].some(team =>
+                                game.home_team.includes(team) ||
+                                game.away_team.includes(team)
+                            )
+                        );
 
-                // Update display
+                        relevantGames.forEach(game => {
+                            allGames.push({
+                                ...game,
+                                sportKey,
+                                sportTitle: sportTitles[sportKey] || sportKey
+                            });
+                        });
+                    }
+                }
+
                 const ticker = document.getElementById('ticker');
+               
                 if (allGames.length === 0) {
-                    ticker.innerHTML = '<div class="ticker-item">No games scheduled</div>';
+                    ticker.innerHTML = '<div class="ticker-item">No live or upcoming games found</div>';
                     return;
                 }
 
                 let html = '';
                 allGames.forEach(game => {
-                    html += createTickerItem(game, game.sportInfo);
+                    html += createTickerItem(game, game.sportKey, game.sportTitle);
                 });
                 html += html; // Duplicate for continuous scroll
 
                 ticker.innerHTML = html;
+                log(`Updated ticker with ${allGames.length} games`);
 
-                // Schedule next update
-                const hasLiveGames = allGames.some(game => 
-                    !game.completed && new Date(game.commence_time) <= now
-                );
-                setTimeout(updateTicker, hasLiveGames ? LIVE_UPDATE_INTERVAL : UPDATE_INTERVAL);
             } catch (error) {
-                setTimeout(updateTicker, UPDATE_INTERVAL);
+                // silent error handling
             }
         }
 
-        // Start updates
+        // Initial update
         updateTicker();
+
+        // Refresh every 30 minutes
+        setInterval(updateTicker, 1800000);
     </script>
 </body>
 </html>
