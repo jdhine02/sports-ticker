@@ -1,5 +1,7 @@
+
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Multi-Sport Ticker</title>
     <meta charset="UTF-8">
@@ -45,12 +47,29 @@
         }
 
         /* Sport-specific colors */
-        .nhl { background: #041E42; }
-        .nfl { background: #013369; }
-        .epl { background: #3D195B; }
-        .ncaab { background: #FF4716; }
-        .ncaaf { background: #7B0000; }
-        .wncaab { background: #FF69B4; }
+        .nhl {
+            background: #041E42;
+        }
+
+        .nfl {
+            background: #013369;
+        }
+
+        .epl {
+            background: #3D195B;
+        }
+
+        .ncaab {
+            background: #FF4716;
+        }
+
+        .ncaaf {
+            background: #7B0000;
+        }
+
+        .wncaab {
+            background: #FF69B4;
+        }
 
         .score {
             color: #ffd700;
@@ -81,15 +100,20 @@
         }
 
         @keyframes ticker {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-100%); }
+            0% {
+                transform: translateX(0);
+            }
+
+            100% {
+                transform: translateX(-100%);
+            }
         }
 
         #debug {
             position: fixed;
             bottom: 0;
             left: 0;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0, 0, 0, 0.8);
             color: white;
             padding: 10px;
             font-family: monospace;
@@ -101,6 +125,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="ticker-container">
         <div class="ticker" id="ticker">
@@ -119,7 +144,7 @@
                 'icehockey_nhl': ['Nashville Predators'],
                 'americanfootball_nfl': ['Tennessee Titans', 'Chicago Bears'],
                 'soccer_epl': ['Arsenal'],
-                'basketball_ncaab': ['Louisville Cardinals', 'Michigan State Spartans'],
+                'basketball_ncaab': ['Louisville Cardinals', 'Michigan St Spartans'],
                 'americanfootball_ncaaf': ['Louisville Cardinals', 'Michigan St Spartans'],
                 'basketball_wncaab': ['Louisville Cardinals', 'Michigan St Spartans']
             },
@@ -177,18 +202,18 @@
         async function fetchWithProxy(endpoint) {
             const url = CORS_PROXY + endpoint;
             log(`Fetching: ${endpoint}`);
-           
+
             try {
                 const response = await fetch(url, {
                     headers: {
                         'Accept': 'application/json'
                     }
                 });
-               
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-               
+
                 const data = await response.json();
                 return data;
             } catch (error) {
@@ -203,7 +228,7 @@
 
         async function getScoresForSport(sportKey) {
             return await fetchWithProxy(
-                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=1&dateFormat=iso`
+                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=3&dateFormat=iso`
             );
         }
 
@@ -239,30 +264,42 @@
                     <span class="${statusClass}">${status}</span>
                     ${game.home_team}
                     ${game.scores ?
-                        `<span class="score">${game.scores.home || '0'}</span> -
+                    `<span class="score">${game.scores.home || '0'}</span> -
                          <span class="score">${game.scores.away || '0'}</span>`
-                        : 'vs'
-                    }
+                    : 'vs'
+                }
                     ${game.away_team}
                     ${isLive ?
-                        `<span class="period">${formatPeriod(game, sportKey)}</span>` :
-                        (!game.completed ?
-                            `<span class="period">${formatGameTime(game.commence_time)}</span>` :
-                            ''
-                        )
-                    }
+                    `<span class="period">${formatPeriod(game, sportKey)}</span>` :
+                    (!game.completed ?
+                        `<span class="period">${formatGameTime(game.commence_time)}</span>` :
+                        ''
+                    )
+                }
                 </div>
             `;
         }
 
+        let nextUpdateTimeout = null; // Holds the reference to the current timeout
+
         async function updateTicker() {
             try {
+                // Clear any existing timeout to avoid multiple timers
+                if (nextUpdateTimeout) {
+                    clearTimeout(nextUpdateTimeout);
+                    nextUpdateTimeout = null;
+                }
+
+                const now = new Date();
                 const sports = await getSportsData();
                 if (!sports) return;
 
                 let allGames = [];
-                const sportTitles = {};
+                let nextUpdateTime = null;
+                let nextUpdateReason = "";
 
+                // Map to track game schedules
+                const sportTitles = {};
                 sports.forEach(sport => {
                     sportTitles[sport.key] = sport.title;
                 });
@@ -283,36 +320,74 @@
                                 sportKey,
                                 sportTitle: sportTitles[sportKey] || sportKey
                             });
+
+                            const gameStartTime = new Date(game.commence_time);
+
+                            if (!game.completed && gameStartTime > now) {
+                                // Upcoming game: Schedule for commence_time if earlier than current nextUpdateTime
+                                if (!nextUpdateTime || gameStartTime < nextUpdateTime) {
+                                    nextUpdateTime = gameStartTime;
+                                    nextUpdateReason = `Next game: ${game.home_team} vs ${game.away_team}`;
+                                }
+                            } else if (!game.completed && gameStartTime <= now) {
+                                // Ongoing game: Schedule for 5 minutes from now
+                                const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+                                if (!nextUpdateTime || fiveMinutesFromNow < nextUpdateTime) {
+                                    nextUpdateTime = fiveMinutesFromNow;
+                                    nextUpdateReason = `Live update for ongoing game: ${game.home_team} vs ${game.away_team}`;
+                                }
+                            }
                         });
                     }
                 }
 
-                const ticker = document.getElementById('ticker');
-               
-                if (allGames.length === 0) {
-                    ticker.innerHTML = '<div class="ticker-item">No live or upcoming games found</div>';
-                    return;
+                // Add a daily 2 AM update to the schedule
+                const next2AM = new Date(now);
+                next2AM.setHours(2, 0, 0, 0);
+                if (now >= next2AM) {
+                    next2AM.setDate(next2AM.getDate() + 1);
+                }
+                if (!nextUpdateTime || next2AM < nextUpdateTime) {
+                    nextUpdateTime = next2AM;
+                    nextUpdateReason = "Daily update at 2 AM";
                 }
 
-                let html = '';
-                allGames.forEach(game => {
-                    html += createTickerItem(game, game.sportKey, game.sportTitle);
-                });
-                html += html; // Duplicate for continuous scroll
+                const ticker = document.getElementById('ticker');
+                if (allGames.length === 0) {
+                    ticker.innerHTML = '<div class="ticker-item">No live or upcoming games found</div>';
+                } else {
+                    let html = '';
+                    allGames.forEach(game => {
+                        html += createTickerItem(game, game.sportKey, game.sportTitle);
+                    });
+                    html += html; // Duplicate for continuous scroll
+                    ticker.innerHTML = html;
+                }
 
-                ticker.innerHTML = html;
                 log(`Updated ticker with ${allGames.length} games`);
+                log(`Next update scheduled at ${nextUpdateTime} (${nextUpdateReason})`);
 
+                // Schedule the next update
+                if (nextUpdateTime) {
+                    const delay = nextUpdateTime - now;
+                    nextUpdateTimeout = setTimeout(updateTicker, delay);
+                }
             } catch (error) {
-                // silent error handling
+                log(`Error in updateTicker: ${error.message}`);
             }
         }
 
-        // Initial update
+        // Fetch a specific game's updated status
+        async function getGameStatus(sportKey, gameId) {
+            const games = await getScoresForSport(sportKey);
+            return games.find(game => game.id === gameId);
+        }
+
+        // Initial call
         updateTicker();
 
-        // Refresh every 30 minutes
-        setInterval(updateTicker, 1800000);
+
     </script>
 </body>
+
 </html>
