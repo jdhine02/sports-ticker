@@ -316,6 +316,10 @@
                     : 'upcoming'
             const format = SPORT_FORMATS[sportKey]
 
+                // Format date for completed games
+            const gameDate = new Date(game.commence_time)
+            const formattedDate = `${(gameDate.getMonth() + 1)}/${gameDate.getDate()}`
+
             log(game.home_team + ' - ' + game.away_team)
 
             // Initialize scores
@@ -337,7 +341,7 @@
                 <div class="ticker-item">
                 <span class="league-badge ${format?.cssClass || ''
             }">${SPORT_DISPLAY_NAMES[sportKey] || sportTitle}</span>
-                    <span class="${statusClass}">${status}</span>
+                    <span class="${statusClass}">${status}${game.completed ? ` ${formattedDate}` : ''}</span>
                     ${game.home_team}
                     ${game.scores
                     ? `<span class="score">${homeScore}</span> -
