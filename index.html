@@ -338,8 +338,8 @@
 
             return `
                 <div class="ticker-item">
-                    <span class="league-badge ${format?.cssClass || ''
-                }">${sportTitle}</span>
+                <span class="league-badge ${format?.cssClass || ''
+            }">${SPORT_DISPLAY_NAMES[sportKey] || sportTitle}</span>
                     <span class="${statusClass}">${status}</span>
                     ${game.home_team}
                     ${game.scores
