@@ -71,7 +71,7 @@
         .wncaab {
             background: #ff69b4;
         }
-        .ucl {
+        .UEFA Champions League {
             background: #3562A6;
         }
 
@@ -146,16 +146,13 @@
 
         const TRACKED_TEAMS = {
             sports: {
-                icehockey_nhl: ['Nashville Predators'],
-                americanfootball_nfl: ['Tennessee Titans', 'Chicago Bears'],
                 soccer_epl: ['Arsenal'],
+                soccer_uefa_champs_league: ['Arsenal'],
                 basketball_ncaab: ['Louisville Cardinals', 'Michigan St Spartans'],
-                americanfootball_ncaaf: [
-                    'Louisville Cardinals',
-                    'Michigan St Spartans'
-                ],
                 basketball_wncaab: ['Louisville Cardinals', 'Michigan St Spartans'],
-                soccer_uefa_champs_league: ['Arsenal']
+                americanfootball_ncaaf: ['Louisville Cardinals', 'Michigan St Spartans'],
+                americanfootball_nfl: ['Tennessee Titans', 'Chicago Bears'],
+                icehockey_nhl: ['Nashville Predators'],                
             },
             allTeams: [
                 'Nashville Predators',
@@ -200,7 +197,7 @@
                 scoreFormat: 'standard'
             },
             socccer_uefa_champs_league: {
-                cssClass: 'ucl',
+                cssClass: 'UEFA Champions League',
                 periodPrefix: 'H',
                 scoreFormat: 'standard'
           },
