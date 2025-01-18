@@ -57,7 +57,7 @@
         }
 
         .epl {
-            background: #3d195b;
+            background: #38003c;
         }
 
         .ncaab {
@@ -71,6 +71,10 @@
         .wncaab {
             background: #ff69b4;
         }
+        .uefa {
+            background: #3562A6;
+        }
+
 
         .score {
             color: #ffd700;
@@ -150,7 +154,8 @@
                     'Louisville Cardinals',
                     'Michigan St Spartans'
                 ],
-                basketball_wncaab: ['Louisville Cardinals', 'Michigan St Spartans']
+                basketball_wncaab: ['Louisville Cardinals', 'Michigan St Spartans'],
+                soccer_uefa_champs_league: ['Arsenal']
             },
             allTeams: [
                 'Nashville Predators',
@@ -176,8 +181,8 @@
             },
             soccer_epl: {
                 cssClass: 'epl',
-                periodPrefix: '',
-                scoreFormat: 'soccer'
+                periodPrefix: 'H',
+                scoreFormat: 'standard'
             },
             basketball_ncaab: {
                 cssClass: 'ncaab',
@@ -186,14 +191,19 @@
             },
             basketball_wncaab: {
                 cssClass: 'wncaab',
-                periodPrefix: 'H',
+                periodPrefix: 'Q',
                 scoreFormat: 'standard'
             },
             americanfootball_ncaaf: {
                 cssClass: 'ncaaf',
                 periodPrefix: 'Q',
                 scoreFormat: 'standard'
-            }
+            },
+            socccer_uefa_champs_league: {
+                cssClass: 'uefa',
+                periodPrefix: 'H',
+                scoreFormat: 'standard'
+          },
         }
 
         function log(message) {
@@ -306,6 +316,21 @@
 
             log(game.home_team + ' - ' + game.away_team)
 
+            // Initialize scores
+            let homeScore = '?';
+            let awayScore = '?';
+
+            // Ensure scores are assigned correctly
+            if (game.scores) {
+                game.scores.forEach(score => {
+                    if (score.team === game.home_team) {
+                        homeScore = score.score || '?';
+                    } else if (score.team === game.away_team) {
+                        awayScore = score.score || '?';
+                    }
+                });
+            }
+
             return `
                 <div class="ticker-item">
                     <span class="league-badge ${format?.cssClass || ''
@@ -313,9 +338,8 @@
                     <span class="${statusClass}">${status}</span>
                     ${game.home_team}
                     ${game.scores
-                    ? `<span class="score">${game.scores[0].score || '0'
-                    }</span> -
-                         <span class="score">${game.scores[1].score || '0'}</span>`
+                    ? `<span class="score">${homeScore}</span> -
+                         <span class="score">${awayScore}</span>`
                     : 'vs'
                 }
                     ${game.away_team}
@@ -387,7 +411,7 @@
                             } else if (!game.completed && gameStartTime <= now) {
                                 // Ongoing game: Schedule for 5 minutes from now
                                 const fiveMinutesFromNow = new Date(
-                                    now.getTime() + 5 * 60 * 1000
+                                    now.getTime() + 2 * 60 * 1000
                                 )
                                 if (!nextUpdateTime || fiveMinutesFromNow < nextUpdateTime) {
                                     nextUpdateTime = fiveMinutesFromNow
