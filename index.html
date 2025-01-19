@@ -57,7 +57,7 @@
         }
 
         .epl {
-            background: #38003c;
+            background: #3d195b;
         }
 
         .ncaab {
@@ -71,10 +71,10 @@
         .wncaab {
             background: #ff69b4;
         }
-        .uefa_champs_league {
+
+        .uefa champs league {
             background: #3562A6;
         }
-
 
         .score {
             color: #ffd700;
@@ -197,16 +197,16 @@
                 scoreFormat: 'standard'
             },
             socccer_uefa_champs_league: {
-                cssClass: 'uefa_champs_league',
+                cssClass: 'uefa champs league',
                 periodPrefix: 'H',
                 scoreFormat: 'standard'
-          },
+          }
         }
 
         const SPORT_DISPLAY_NAMES = {
-    'soccer_uefa_champs_league': 'UEFA'
-    // You can add more custom display names here if needed
-        }
+            'soccer_uefa_champs_league': 'UEFA'
+            // You can add more custom display names here if needed
+                }
 
         function log(message) {
             const debug = document.getElementById('debug')
@@ -316,9 +316,9 @@
                     : 'upcoming'
             const format = SPORT_FORMATS[sportKey]
 
-                // Format date for completed games
-            const gameDate = new Date(game.commence_time)
-            const formattedDate = `${(gameDate.getMonth() + 1)}/${gameDate.getDate()}`
+                            // Format date for completed games
+                            const gameDate = new Date(game.commence_time)
+                            const formattedDate = `${(gameDate.getMonth() + 1)}/${gameDate.getDate()}`
 
             log(game.home_team + ' - ' + game.away_team)
 
@@ -329,19 +329,26 @@
             // Ensure scores are assigned correctly
             if (game.scores) {
                 game.scores.forEach(score => {
-                    if (score.team === game.home_team) {
+                    if (score.name === game.home_team) {
                         homeScore = score.score || '?';
-                    } else if (score.team === game.away_team) {
+                    } else if (score.name === game.away_team) {
                         awayScore = score.score || '?';
                     }
                 });
             }
 
+            // Format the date of the match
+            const matchDate = new Date(game.commence_time).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+
             return `
                 <div class="ticker-item">
                 <span class="league-badge ${format?.cssClass || ''
             }">${SPORT_DISPLAY_NAMES[sportKey] || sportTitle}</span>
-                    <span class="${statusClass}">${status}${game.completed ? ` ${formattedDate}` : ''}</span>
+                     <span class="${statusClass}">${status}${game.completed ? ` ${formattedDate}` : ''}</span>
                     ${game.home_team}
                     ${game.scores
                     ? `<span class="score">${homeScore}</span> -
@@ -417,7 +424,7 @@
                             } else if (!game.completed && gameStartTime <= now) {
                                 // Ongoing game: Schedule for 5 minutes from now
                                 const fiveMinutesFromNow = new Date(
-                                    now.getTime() + 2 * 60 * 1000
+                                    now.getTime() + 5 * 60 * 1000
                                 )
                                 if (!nextUpdateTime || fiveMinutesFromNow < nextUpdateTime) {
                                     nextUpdateTime = fiveMinutesFromNow
