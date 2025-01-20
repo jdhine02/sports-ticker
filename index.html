@@ -424,7 +424,7 @@
                             } else if (!game.completed && gameStartTime <= now) {
                                 // Ongoing game: Schedule for 5 minutes from now
                                 const fiveMinutesFromNow = new Date(
-                                    now.getTime() + 1 * 60 * 1000
+                                    now.getTime() + 5 * 60 * 1000
                                 )
                                 if (!nextUpdateTime || fiveMinutesFromNow < nextUpdateTime) {
                                     nextUpdateTime = fiveMinutesFromNow
