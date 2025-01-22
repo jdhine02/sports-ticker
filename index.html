@@ -102,7 +102,7 @@
 
         .final {
             color: #44ff44;
-            margin: 0 5px;
+            margin: 0 3px;
         }
 
         .period {
@@ -258,7 +258,7 @@
 
         async function getScoresForSport(sportKey) {
             return await fetchWithProxy(
-                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=1&dateFormat=iso`
+                `/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=2&dateFormat=iso`
             )
         }
 
