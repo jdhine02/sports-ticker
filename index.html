@@ -47,40 +47,42 @@
             font-size: 0.8em;
         }
 
-        /* Sport-specific colors */
-        .nhl {
+        /* Team-specific colors */
+        .louisville {
+            background: #AD0000;  /* Louisville Red */
+            color: #FFFFFF;
+        }
+        
+        .michigan-st {
+            background: #18453B;  /* Michigan State Green */
+            color: #FFFFFF;
+        }
+        
+        .arsenal {
+            background: #DB0007;
+            color: #063672;
+        }
+        
+        .predators {
             background: #FFB81C;
             color: #063672;
         }
-
-        .nfl {
+        
+        .titans {
             background: #4B92DB;
             color: #0C2340;
         }
-
-        .epl {
-            background: #DB0007;
-            color: #9C824A;
+        
+        .bears {
+            background: #0B162A;
+            color: #C83803;
         }
 
-        .ncaab {
-            background: #C0C0C0;
-            color: #AD0000;
+        .blackhawks {
+            background: #CF0A2C ;
+            color: #000000;
         }
-
-        .ncaaf {
-            background: #AD0000;
-        }
-
-        .wncaab {
-            background: #ff69b4;
-        }
-
-        .uefa champs league {
-            background: #3562A6;
-            color: #0E1E5B;
-        }
-
+        
         .score {
             color: #ffd700;
             margin: 0 10px;
@@ -104,6 +106,12 @@
         }
 
         .period {
+            color: #888;
+            margin-left: 10px;
+            font-size: 0.9em;
+        }
+
+        .final-date {
             color: #888;
             margin-left: 10px;
             font-size: 0.9em;
@@ -157,7 +165,7 @@
                 basketball_wncaab: ['Louisville Cardinals', 'Michigan St Spartans'],
                 americanfootball_ncaaf: ['Louisville Cardinals', 'Michigan St Spartans'],
                 americanfootball_nfl: ['Tennessee Titans', 'Chicago Bears'],
-                icehockey_nhl: ['Nashville Predators'],                
+                icehockey_nhl: ['Nashville Predators', 'Chicago Blackhawks'],                
             },
             allTeams: [
                 'Nashville Predators',
@@ -165,7 +173,8 @@
                 'Chicago Bears',
                 'Arsenal',
                 'Louisville Cardinals',
-                'Michigan St Spartans'
+                'Michigan St Spartans',
+                'Chicago Blackhawks'
             ]
         }
 
@@ -310,6 +319,26 @@
             adjustTickerAnimation()
         }
 
+        function getTeamClass(teamName) {
+            // Map team names to CSS classes
+            const teamClasses = {
+                'Louisville Cardinals': 'louisville',
+                'Michigan St Spartans': 'michigan-st',
+                'Arsenal': 'arsenal',
+                'Nashville Predators': 'predators',
+                'Tennessee Titans': 'titans',
+                'Chicago Bears': 'bears',
+                'Chicago Blackhawks': 'blackhawks',
+            };
+        
+            // Find the matching team class
+            const matchingTeam = Object.keys(teamClasses).find(team => 
+                teamName.includes(team)
+            );
+        
+            return matchingTeam ? teamClasses[matchingTeam] : 'default-badge';
+        }
+        
         function createTickerItem(game, sportKey, sportTitle) {
             const isLive =
                 game.completed === false && new Date(game.commence_time) <= new Date()
@@ -321,9 +350,16 @@
                     : 'upcoming'
             const format = SPORT_FORMATS[sportKey]
 
-                            // Format date for completed games
-                            const gameDate = new Date(game.commence_time)
-                            const formattedDate = `${(gameDate.getMonth() + 1)}/${gameDate.getDate()}`
+            // Add this right after your other variable declarations in createTickerItem
+            const homeTeamClass = getTeamClass(game.home_team)
+            const awayTeamClass = getTeamClass(game.away_team)
+            const teamClass = TRACKED_TEAMS.allTeams.some(team => game.home_team.includes(team)) 
+                ? homeTeamClass 
+                : awayTeamClass;
+
+            // Format date for completed games
+            const gameDate = new Date(game.commence_time)
+            const formattedDate = `${(gameDate.getMonth() + 1)}/${gameDate.getDate()}`
 
             log(game.home_team + ' - ' + game.away_team)
 
@@ -351,9 +387,8 @@
 
             return `
                 <div class="ticker-item">
-                <span class="league-badge ${format?.cssClass || ''
-            }">${SPORT_DISPLAY_NAMES[sportKey] || sportTitle}</span>
-                     <span class="${statusClass}">${status}${game.completed ? ` ${formattedDate}` : ''}</span>
+               <span class="league-badge ${teamClass}">${SPORT_DISPLAY_NAMES[sportKey] || sportTitle}</span>
+                     <span class="${statusClass}">${status}</span>${game.completed ? `<span class="final-date"> ${formattedDate}</span>` : ''}
                     ${game.home_team}
                     ${game.scores
                     ? `<span class="score">${homeScore}</span> -
